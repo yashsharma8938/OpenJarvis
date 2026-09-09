@@ -1,0 +1,22 @@
+# compose.yaml — convenience alias at the repo root.
+#
+# This file simply delegates to the canonical Docker Compose configuration in
+# deploy/docker/docker-compose.yml so you can run `docker compose up` from the
+# repository root without specifying a -f flag.
+#
+# It does NOT alter any Docker behaviour. All service definitions, networking,
+# volumes, and environment-variable requirements are defined in:
+#   deploy/docker/docker-compose.yml
+#   deploy/docker/docker-compose.gpu.nvidia.yml  (NVIDIA GPU override)
+#   deploy/docker/docker-compose.gpu.rocm.yml    (AMD ROCm override)
+#
+# Usage:
+#   docker compose up                            # CPU (default)
+#   docker compose -f deploy/docker/docker-compose.gpu.nvidia.yml up  # NVIDIA GPU
+#
+# Before running: copy and configure the env file:
+#   cp deploy/docker/.env.example deploy/docker/.env
+#   # then edit deploy/docker/.env — OPENJARVIS_API_KEY is required
+
+include:
+  - path: deploy/docker/docker-compose.yml

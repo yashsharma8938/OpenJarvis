@@ -72,6 +72,7 @@ class ChatCompletionResponse(BaseModel):
     choices: List[Choice] = Field(default_factory=list)
     usage: UsageInfo = Field(default_factory=UsageInfo)
     complexity: Optional[ComplexityInfo] = None
+    executed_tools: Optional[List[Dict[str, Any]]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ class ChatCompletionChunk(BaseModel):
     created: int = Field(default_factory=lambda: int(time.time()))
     model: str = ""
     choices: List[StreamChoice] = Field(default_factory=list)
+    executed_tools: Optional[List[Dict[str, Any]]] = None
 
 
 # ---------------------------------------------------------------------------

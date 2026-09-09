@@ -654,6 +654,15 @@ def _handle_agent(
         if Path(audio_path).exists():
             audio_meta = AudioMeta(url="/api/digest/audio")
 
+    executed_tools = []
+    for tr in getattr(result, "tool_results", []):
+        executed_tools.append({
+            "tool": tr.tool_name,
+            "success": getattr(tr, "success", True),
+            "result": tr.content,
+            "arguments": getattr(tr, "metadata", {})
+        })
+
     return ChatCompletionResponse(
         model=model,
         choices=[
@@ -668,6 +677,7 @@ def _handle_agent(
         ],
         usage=usage,
         complexity=complexity_info,
+        executed_tools=executed_tools,
     )
 
 
@@ -761,6 +771,8 @@ async def _handle_agent_stream(
         finish_data["usage"] = response.usage.model_dump()
         if complexity_info is not None:
             finish_data["complexity"] = complexity_info.model_dump()
+        if hasattr(response, "executed_tools") and response.executed_tools:
+            finish_data["executed_tools"] = response.executed_tools
         yield f"data: {_json.dumps(finish_data)}\n\n"
 
         _record_completed_exchange(

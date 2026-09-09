@@ -973,6 +973,61 @@ async def speech_health(request: Request):
     }
 
 
+class TTSSynthesizeRequest(BaseModel):
+    text: str
+    voice_id: Optional[str] = "af_heart"
+    speed: Optional[float] = 1.0
+    output_format: Optional[str] = "wav"
+
+
+@speech_router.post("/synthesize")
+async def synthesize_speech(req: TTSSynthesizeRequest, request: Request):
+    """Synthesize text into audio using the configured local TTS backend (Kokoro)."""
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Empty text provided")
+
+    try:
+        import openjarvis.speech  # noqa: F401
+        from openjarvis.core.registry import TTSRegistry
+
+        tts_backend = getattr(request.app.state, "tts_backend", None)
+        if tts_backend is None:
+            if TTSRegistry.contains("kokoro"):
+                backend_cls = TTSRegistry.get("kokoro")
+                tts_backend = backend_cls()
+                request.app.state.tts_backend = tts_backend
+            else:
+                raise HTTPException(status_code=501, detail="Kokoro TTS backend not registered")
+
+        result = await asyncio.to_thread(
+            tts_backend.synthesize,
+            req.text,
+            voice_id=req.voice_id or "af_heart",
+            speed=req.speed or 1.0,
+            output_format=req.output_format or "wav",
+        )
+
+        from fastapi.responses import Response
+
+        return Response(
+            content=result.audio,
+            media_type=f"audio/{result.format or 'wav'}",
+            headers={
+                "X-Audio-Duration": str(result.duration_seconds),
+                "X-Audio-Sample-Rate": str(result.sample_rate),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Speech synthesis failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Speech synthesis failed: {exc}",
+        ) from exc
+
+
+
 # ---- Feedback routes ----
 
 feedback_router = APIRouter(prefix="/v1/feedback", tags=["feedback"])

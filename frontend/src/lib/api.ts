@@ -83,6 +83,23 @@ export const getBase = (): string => {
 // Returns '' when unset, so a keyless local server keeps working unchanged.
 export const getApiKey = (): string => {
   try {
+    if (typeof window !== 'undefined' && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      const urlKey = params.get('apiKey') || params.get('api_key') || params.get('key');
+      if (urlKey) {
+        try {
+          const raw = localStorage.getItem('openjarvis-settings') || '{}';
+          const parsed = JSON.parse(raw);
+          if (parsed.apiKey !== urlKey) {
+            parsed.apiKey = urlKey;
+            localStorage.setItem('openjarvis-settings', JSON.stringify(parsed));
+          }
+        } catch {}
+        return urlKey;
+      }
+    }
+  } catch {}
+  try {
     const raw = localStorage.getItem('openjarvis-settings');
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -158,15 +175,26 @@ export async function fetchModels(): Promise<ModelInfo[]> {
   if (isTauri()) {
     try {
       const result = await tauriInvoke<{ data?: ModelInfo[] }>('fetch_models');
-      return result?.data || [];
+      if (result?.data && result.data.length > 0) return result.data;
     } catch {
       // Fall through to fetch
     }
   }
   const res = await apiFetch(`/v1/models`);
+  if (res.status === 401) {
+    throw new Error('401 Unauthorized: OPENJARVIS_API_KEY required or invalid');
+  }
   if (!res.ok) throw new Error(`Failed to fetch models: ${res.status}`);
   const data = await res.json();
-  return data.data || [];
+  const rawList = Array.isArray(data) ? data : (data.data || data.models || []);
+  return rawList.map((m: any) => ({
+    id: String(m.id || m.name || ''),
+    object: m.object || 'model',
+    created: typeof m.created === 'number' ? m.created : Date.now(),
+    owned_by: m.owned_by || 'openjarvis',
+    name: m.name || m.id,
+    size: m.size,
+  })).filter((m: ModelInfo) => Boolean(m.id));
 }
 
 export async function fetchRecommendedModel(): Promise<{ model: string; reason: string }> {
@@ -378,6 +406,30 @@ export async function fetchSpeechHealth(): Promise<SpeechHealth> {
   return res.json();
 }
 
+export async function synthesizeSpeech(
+  text: string,
+  voice_id = 'af_heart',
+  speed = 1.0,
+): Promise<Blob> {
+  const res = await apiFetch(`/v1/speech/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice_id, speed }),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = typeof body.detail === 'string' ? body.detail : '';
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail || `Speech synthesis failed: ${res.status}`);
+  }
+  return res.blob();
+}
+
+
 // ---------------------------------------------------------------------------
 // Agent Manager
 // ---------------------------------------------------------------------------
@@ -543,8 +595,8 @@ export async function bindAgentChannel(
   channelType: string,
   config?: Record<string, unknown>,
 ): Promise<ChannelBinding> {
-  const res = await fetch(
-    `${getBase()}/v1/managed-agents/${agentId}/channels`,
+  const res = await apiFetch(
+    `/v1/managed-agents/${agentId}/channels`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -563,8 +615,8 @@ export async function unbindAgentChannel(
   agentId: string,
   bindingId: string,
 ): Promise<void> {
-  const res = await fetch(
-    `${getBase()}/v1/managed-agents/${agentId}/channels/${bindingId}`,
+  const res = await apiFetch(
+    `/v1/managed-agents/${agentId}/channels/${bindingId}`,
     { method: 'DELETE' },
   );
   if (!res.ok) throw new Error(`Failed: ${res.status}`);

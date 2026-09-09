@@ -121,6 +121,208 @@ See the [User Guide](https://open-jarvis.github.io/OpenJarvis/user-guide/morning
 
 Full documentation — including Docker deployment, cloud engines, development setup, and tutorials — at **[open-jarvis.github.io/OpenJarvis](https://open-jarvis.github.io/OpenJarvis/)**.
 
+---
+
+## Local Windows Voice Mode
+
+> **This section documents the extended local Windows setup** — voice interaction, Windows desktop automation, and the 3-terminal launcher. These features run natively on Windows and do **not** apply to Docker/Linux deployments.
+
+### What This Mode Adds
+
+| Feature | Description |
+|---|---|
+| **Voice Input** | Faster-Whisper (local STT — no cloud) transcribes microphone audio |
+| **Voice Output** | Kokoro TTS (local, open-source) synthesises spoken responses |
+| **Desktop Automation** | `windows_desktop_action` tool opens/closes apps, folders, URLs via an allowlist |
+| **Voice UI** | `VoicePage` in the built-in frontend with VAD auto-stop and autonomous loop |
+| **3-Terminal Launcher** | `start_voice.ps1` starts Ollama + OpenJarvis + optional Ultron frontend |
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Windows 10/11 | Desktop automation and audio capture require Windows |
+| [Ollama](https://ollama.com/) installed | `ollama pull qwen3.5:4b` (or your preferred model) |
+| Python ≥ 3.10, [uv](https://docs.astral.sh/uv/) | `pip install uv` or the one-liner installer |
+| Speech extras installed | `uv sync --extra speech` (installs Faster-Whisper + Kokoro + sounddevice) |
+
+### Quick Start
+
+```powershell
+# 1. Clone and install with speech support
+git clone https://github.com/<your-fork>/OpenJarvis.git
+cd OpenJarvis
+uv sync --extra speech
+
+# 2. Pull your model (first time only — ~2 GB)
+ollama pull qwen3.5:4b
+
+# 3. (Optional) set non-default paths
+$env:OLLAMA_MODELS  = "D:\MyModels"          # if you store models elsewhere
+$env:HF_HOME        = "D:\HuggingFaceCache"  # if you store HF models elsewhere
+$env:OPENJARVIS_MODEL = "qwen3.5:4b"         # model tag (default: qwen3.5:4b)
+$env:ULTRON_PATH    = "C:\Projects\Ultron-OpenJarvis"  # if using Ultron frontend
+
+# 4. Launch everything
+.\start_voice.ps1
+```
+
+`start_voice.ps1` opens three PowerShell terminals:
+1. **Ollama** — local inference server on port 11434
+2. **OpenJarvis backend** — FastAPI on port 8000 (`orchestrator` agent, Ollama engine)
+3. **Ultron frontend** — React dev server (only if `ULTRON_PATH` is set)
+
+### Environment Variables (Local Dev)
+
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_MODELS` | `%USERPROFILE%\.ollama\models` | Where Ollama stores model weights |
+| `HF_HOME` | `%USERPROFILE%\.cache\huggingface` | HuggingFace / Faster-Whisper cache |
+| `OPENJARVIS_MODEL` | `qwen3.5:4b` | Ollama model tag |
+| `OPENJARVIS_PORT` | `8000` | Backend API port |
+| `OPENJARVIS_AGENT` | `orchestrator` | Agent type to start |
+| `ULTRON_PATH` | *(unset — Terminal 3 skipped)* | Path to the Ultron frontend repo |
+| `VITE_OPENJARVIS_API_KEY` | *(empty)* | API key for the frontend; set in `frontend/.env.local` |
+
+### Voice Pipeline
+
+The voice pipeline runs **entirely locally** — no cloud APIs required:
+
+```
+Microphone → Faster-Whisper (STT) → OpenJarvis orchestrator
+           → Kokoro TTS (synthesis) → Speaker
+```
+
+- **STT:** [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) uses CTranslate2 for fast local transcription. Models download automatically on first use (~150 MB for `base`).
+- **TTS:** [Kokoro](https://github.com/hexgrad/kokoro) is a fully open-source TTS library. Supports English, Mandarin, Japanese, French, Italian, Portuguese, Hindi, Spanish. Default voice: `af_heart`.
+- **VAD:** The frontend uses the Web Audio API AnalyserNode for voice-activity detection — recording stops automatically after silence.
+
+### Windows Desktop Automation
+
+The `windows_desktop_action` tool lets the orchestrator control the Windows desktop through a strict allowlist:
+
+```
+"Open Chrome"          → open_application: chrome
+"Open Downloads"       → open_folder: downloads
+"Search for NVIDIA"    → search_web: NVIDIA
+"Open github.com"      → open_url: https://github.com
+"Close Spotify"        → close_application: spotify
+```
+
+**Security model:** only explicitly listed applications can be launched or closed. `cmd`, `powershell`, and `terminal` are blocked. Only `https://` URLs are accepted.
+
+> **Note:** `windows_desktop_action` checks `sys.platform` at runtime and returns a graceful error on non-Windows systems — it will not crash a Linux/Docker deployment, it simply won't perform any actions.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `faster-whisper not installed` | `uv sync --extra speech` |
+| `kokoro package not installed` | `uv sync --extra speech` |
+| Kokoro Mandarin/Japanese fails | `pip install "misaki[zh]"` or `pip install "misaki[ja]"` |
+| Port 8000 already in use | `start_voice.ps1` kills the process automatically; or run manually: `Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess` |
+| Ollama not found | Install from [ollama.com](https://ollama.com/) and ensure it's on PATH |
+| Browser blocks mic / audio | Click the **"Start Jarvis"** button after granting microphone permission |
+
+---
+
+## Docker Deployment
+
+OpenJarvis ships with a complete Docker setup in [`deploy/docker/`](deploy/docker/). The built image bundles the FastAPI backend and the built frontend SPA.
+
+### What Works in Docker
+
+| Feature | Docker (Linux) |
+|---|---|
+| OpenJarvis API server | ✅ Full support |
+| Built-in chat frontend | ✅ Served from `/` |
+| Ollama inference (via compose) | ✅ Included as a service |
+| All text-based agents | ✅ Full support |
+| Memory / vector search | ✅ Full support |
+
+### What Does NOT Work in Docker
+
+| Feature | Reason |
+|---|---|
+| Voice input (Faster-Whisper) | Requires physical microphone — no audio hardware in containers |
+| Voice output (Kokoro TTS) | Requires audio output device |
+| Windows desktop automation | Windows-only syscalls; tool is disabled on Linux |
+| `start_voice.ps1` | PowerShell Windows script |
+
+### CPU Quick Start
+
+```bash
+# 1. Copy and configure environment
+cp deploy/docker/.env.example deploy/docker/.env
+# Edit deploy/docker/.env — set OPENJARVIS_API_KEY at minimum
+
+# 2. Start (Ollama + OpenJarvis backend + built-in frontend)
+docker compose -f deploy/docker/docker-compose.yml up
+
+# Or from the repo root (convenience alias):
+docker compose up
+
+# 3. Pull your model inside the Ollama container
+docker exec -it openjarvis-ollama-1 ollama pull qwen3.5:4b
+
+# 4. Open the UI
+open http://localhost:8000
+```
+
+### GPU (NVIDIA)
+
+```bash
+# Requires: NVIDIA Container Toolkit installed on the host
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.gpu.nvidia.yml \
+  up
+```
+
+### GPU (AMD ROCm)
+
+```bash
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.gpu.rocm.yml \
+  up
+```
+
+### Using Host Ollama Instead of the Compose Service
+
+If Ollama is already running on your host machine, remove the `ollama` service and point the backend at the host:
+
+```bash
+# In deploy/docker/.env:
+OLLAMA_HOST=http://host.docker.internal:11434
+
+# Then start only the jarvis service:
+docker compose -f deploy/docker/docker-compose.yml up jarvis
+```
+
+### Environment Variables (Docker)
+
+See [`deploy/docker/.env.example`](deploy/docker/.env.example) for the full reference. Key variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `OPENJARVIS_API_KEY` | **Yes** | Bearer token for all API requests |
+| `OPENJARVIS_ENGINE_DEFAULT` | No | Inference engine (default: `ollama`) |
+| `OLLAMA_HOST` | No | Ollama URL (default: `http://ollama:11434`) |
+| `OLLAMA_MODEL` | No | Model tag (default: `qwen3.5:4b`) |
+
+### Advanced: Speech in Docker (Optional)
+
+Voice support in Docker is possible but is **not part of the default image** because it requires torch (~2 GB) and audio libraries. To enable it:
+
+1. Build with `--extra speech` added to the `uv export` step in the Dockerfile
+2. Use the GPU image (`Dockerfile.gpu`) for reasonable TTS performance
+3. Mount an audio device into the container (`--device /dev/snd`)
+
+This is an advanced configuration. For most use cases, run voice features on Windows locally and use Docker for the API server only.
+
+---
+
 ## Community
 
 - **GitHub:** [github.com/open-jarvis/OpenJarvis](https://github.com/open-jarvis/OpenJarvis)

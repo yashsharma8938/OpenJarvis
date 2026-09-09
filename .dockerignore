@@ -1,0 +1,157 @@
+# .dockerignore — controls what is excluded from the Docker build context.
+# Mirrors .gitignore with additional Docker-specific exclusions.
+# This file is intentionally comprehensive: anything that shouldn't reach
+# the build daemon is listed here explicitly.
+
+# ---------------------------------------------------------------------------
+# Version control
+# ---------------------------------------------------------------------------
+.git/
+.github/
+.gitignore
+.pre-commit-config.yaml
+
+# ---------------------------------------------------------------------------
+# Python build artefacts & virtual environments
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+.python-version
+
+# ---------------------------------------------------------------------------
+# uv / pip caches (never needed inside the image)
+# ---------------------------------------------------------------------------
+.uv/
+.cache/
+
+# ---------------------------------------------------------------------------
+# Rust build artefacts (the Dockerfile rebuilds the extension from source)
+# ---------------------------------------------------------------------------
+target/
+rust/target/
+
+# ---------------------------------------------------------------------------
+# Frontend artefacts (the Dockerfile builds the SPA in its own stage)
+# ---------------------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env
+frontend/tsconfig.tsbuildinfo
+desktop/node_modules/
+desktop/dist/
+src/openjarvis/server/static/
+src/openjarvis/channels/whatsapp_baileys_bridge/node_modules/
+src/openjarvis/agents/claude_code_runner/node_modules/
+
+# ---------------------------------------------------------------------------
+# Secrets and local configuration — NEVER copy into an image
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!**/.env.example
+deploy/docker/.env
+
+# ---------------------------------------------------------------------------
+# Local databases, traces, and runtime state
+# ---------------------------------------------------------------------------
+*.sqlite
+*.db
+*.jsonl
+*.npz
+/traces/
+.openjarvis/
+learning.db
+**/learning/sessions/
+**/learning/pending_review/
+**/learning/benchmarks/
+**/teacher_traces/
+*.session.json
+
+# ---------------------------------------------------------------------------
+# Logs and debug artefacts
+# ---------------------------------------------------------------------------
+*.log
+logs/
+results/
+minion_logs/
+*.oj-debug.json
+oj-debug.*.json
+dogfood_report*.md
+
+# ---------------------------------------------------------------------------
+# IDE and OS artefacts
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Test artefacts
+# ---------------------------------------------------------------------------
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+MagicMock/
+
+# ---------------------------------------------------------------------------
+# Documentation build output (not needed at runtime)
+# ---------------------------------------------------------------------------
+site/
+docs/plans/
+docs/superpowers/
+.superpowers/
+
+# ---------------------------------------------------------------------------
+# Local model files and HuggingFace / Ollama caches
+# (these should NEVER be inside a committed image — mount as volumes instead)
+# ---------------------------------------------------------------------------
+*.bin
+*.safetensors
+*.gguf
+*.ggml
+*.pt
+*.pth
+*.onnx
+
+# ---------------------------------------------------------------------------
+# Research and scratch output
+# ---------------------------------------------------------------------------
+research_mining_*
+coding_task_*
+scratch/
+Inline/
+.worktrees/
+
+# ---------------------------------------------------------------------------
+# Tauri / desktop build output
+# ---------------------------------------------------------------------------
+frontend/src-tauri/target/
+**/src-tauri/gen/schemas/
+
+# ---------------------------------------------------------------------------
+# Claude / agent plan artefacts (developer-local only)
+# ---------------------------------------------------------------------------
+CLAUDE.md
+.claude/
+
+# ---------------------------------------------------------------------------
+# Miscellaneous lock artefacts
+# ---------------------------------------------------------------------------
+.nfs*
+**/.nfs*
+get-pip.py

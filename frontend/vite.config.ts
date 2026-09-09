@@ -59,12 +59,12 @@ export default defineConfig({
       // opens — no error, no close event, just silence — and every live agent
       // view sits empty in dev while working in a production build.
       '/v1': {
-        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:8000',
         changeOrigin: true,
         ws: true,
       },
-      '/health': process.env.VITE_API_URL || 'http://localhost:8000',
-      '/api': process.env.VITE_API_URL || 'http://localhost:8000',
+      '/health': process.env.VITE_API_URL || 'http://127.0.0.1:8000',
+      '/api': process.env.VITE_API_URL || 'http://127.0.0.1:8000',
     },
   },
 });

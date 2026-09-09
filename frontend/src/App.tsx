@@ -8,6 +8,7 @@ import { GetStartedPage } from './pages/GetStartedPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { DataSourcesPage } from './pages/DataSourcesPage';
 import { LogsPage } from './pages/LogsPage';
+import { VoicePage } from './pages/VoicePage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -45,7 +46,6 @@ export default function App() {
   const optInModalOpen = useAppStore((s) => s.optInModalOpen);
   const setOptInModalOpen = useAppStore((s) => s.setOptInModalOpen);
   const markOptInModalSeen = useAppStore((s) => s.markOptInModalSeen);
-  const savings = useAppStore((s) => s.savings);
 
   // Apply theme class to <html>
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [importOverlay]);
 
-  // Fetch models on mount
+  // Fetch models on mount and whenever apiKey changes
   useEffect(() => {
     fetchModels()
       .then((m) => {
@@ -72,7 +72,7 @@ export default function App() {
       })
       .catch(() => setModels([]))
       .finally(() => setModelsLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings.apiKey]);
 
   // Fetch server info
   useEffect(() => {
@@ -125,9 +125,7 @@ export default function App() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fire model_changed when the user switches models. First mount is
-  // not a "change" — only emit when both prev and current are real and
-  // differ.
+  // Fire model_changed when the user switches models
   useEffect(() => {
     const prev = prevModelRef.current;
     const curr = selectedModel || '';
@@ -145,9 +143,7 @@ export default function App() {
     })();
   }, [selectedModel]);
 
-  // app_opened — one-shot per app launch, fires after analytics has had
-  // a chance to initialize. platform + version are super-properties
-  // registered in analytics.ts initAnalytics, so no per-call props needed.
+  // app_opened — one-shot per app launch
   useEffect(() => {
     const t = setTimeout(() => {
       track('app_opened', {});
@@ -173,7 +169,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [commandPaletteOpen, setCommandPaletteOpen, toggleSystemPanel]);
 
-
   if (!setupDone) {
     return <SetupScreen onReady={handleSetupReady} />;
   }
@@ -184,6 +179,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
+          <Route path="voice" element={<VoicePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />

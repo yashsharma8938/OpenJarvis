@@ -30,6 +30,7 @@ import {
   fetchToolCredentialStatus,
   saveToolCredentials,
   deleteToolCredential,
+  fetchModels,
   isTauri,
   type InferenceSource,
 } from '../lib/api';
@@ -38,11 +39,10 @@ import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Deskt
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
 
 function OllamaModelList() {
-  const [models, setModels] = useState<Array<{ name: string; size: number }>>([]);
+  const [models, setModels] = useState<Array<{ name: string; size?: number }>>([]);
   useEffect(() => {
-    fetch('http://localhost:11434/api/tags')
-      .then(r => r.json())
-      .then(data => setModels((data.models || []).map((m: any) => ({ name: m.name, size: m.size }))))
+    fetchModels()
+      .then(mList => setModels(mList.map(m => ({ name: m.name || m.id, size: m.size }))))
       .catch(() => setModels([]));
   }, []);
   if (models.length === 0) return <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>No models loaded</span>;
@@ -52,7 +52,7 @@ function OllamaModelList() {
         <span key={m.name} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px]"
           style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-success)', display: 'inline-block' }} />
-          {m.name} ({(m.size / 1e9).toFixed(1)} GB)
+          {m.name}{m.size ? ` (${(m.size / 1e9).toFixed(1)} GB)` : ''}
         </span>
       ))}
     </div>

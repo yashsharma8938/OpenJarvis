@@ -80,12 +80,16 @@ export function useSpeech() {
     });
   }, []);
 
+  /** Expose the live stream so callers can attach a Web Audio AnalyserNode for VAD. */
+  const getStream = useCallback((): MediaStream | null => streamRef.current, []);
+
   return {
     state,
     error,
     available,
     startRecording,
     stopRecording,
+    getStream,
     isRecording: state === 'recording',
     isTranscribing: state === 'transcribing',
   };

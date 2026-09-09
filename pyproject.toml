@@ -40,6 +40,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
     "tomlkit>=0.12",
     "websockets>=15.0.1",
+    "soundfile>=0.14.0",
 ]
 
 [project.optional-dependencies]
@@ -139,6 +140,7 @@ speech = [
     "numpy>=1.24",
     "sounddevice>=0.5",
     "soundfile>=0.12",
+    "kokoro>=0.9.0",
 ]
 speech-deepgram = ["deepgram-sdk>=3.0"]
 eval-wandb = ["wandb>=0.17"]
